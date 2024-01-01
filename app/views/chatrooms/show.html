@@ -1,0 +1,145 @@
+#include <crails/i18n.hpp>
+#include <crails/html_form_builder.hpp>
+#include "app/models/chatroom_query.hpp"
+#include "lib/plugin-odb.hxx"
+
+std::string @post_route;
+const Chatroom& @model;
+Crails::Odb::id_type @user_id;
+ChatroomMessage new_message;
+odb::result<ChatroomMessageView>& @messages;
+unsigned long @items_count;
+
+Crails::FormBuilder<ChatroomMessage> form = Crails::FormBuilder<ChatroomMessage>(this, new_message);
+
+// END LINKING
+
+<style>
+.chatroom-view {
+  max-width: 960px;
+  margin: 0 auto;
+  height: 100%;
+}
+
+.chatroom-scroll-zone {
+  height: calc(100% - 200px);
+  overflow-y: scroll;
+}
+
+.chatroom-history { 
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  list-style: none;
+  padding: 0;
+}
+
+.chatroom-history li {
+  display: flex;
+  padding: 5px 0;
+}
+
+.chatroom-history li span {
+  margin-right: 1em;
+}
+
+.user {
+  font-weight: bold;
+}
+
+.user::after {
+  content: ":";
+}
+
+.chatroom-history li span.avatar {
+  margin-right: 0.5em;
+}
+
+.avatar img {
+  width: 1em; height: 1em;
+}
+</style>
+
+<div id="message-model" style="display:none">
+  <li>
+    <span class="avatar"><img /></span>
+    <span class="user"></span>
+    <span class="body"></span>
+  </li>
+</div>
+
+<div class="chatroom-view">
+  <h1><%= model.get_title() %></h1>
+
+  <div class="chatroom-scroll-zone">
+  <ul class="chatroom-history" data-user-id="<%= user_id %>">
+    <% for (const auto& message_view : messages) do -%>
+      <% const ChatroomMessage& message = *message_view.message %>
+      <% const User& author = *message_view.user %>
+      <li>
+        <span class="avatar">
+          <%= tag("img", {{"src", author.get_avatar_url()}}) %>
+        </span>
+        <span class="user">
+          <%= author.get_display_name() %>
+        </span>
+        <span class="body">
+          <%= html_escape(message.get_body()) %>
+        </span>
+      </li>
+    <% end -%>
+  </ul>
+  </div>
+
+  <%= form_for(new_message, post_route, {{"id","main-form"}}) yields %>
+    <%= form.text_area("body", std::string()) %>
+    <button type="submit">
+      <%= i18n::t("chatroom.send") %>
+    </button>
+  <% yields-end %>
+</div>
+
+<script>
+  const route = "<%= post_route %>";
+  const messageList = document.body.querySelector(".chatroom-history");
+  const scrollZone = messageList.parentElement;
+  const userId = messageList.dataset.userId;
+  const messageViewModel = document.getElementById("message-model").children[0];
+  const form = document.getElementById("main-form");
+  const input = form.querySelector("textarea");
+  const csrfTokenInput = form.querySelector("[name=csrf-token]");
+  const socket = new WebSocket(`ws://${location.host}${route}/channel`);
+
+  function scrolledToBottom() {
+    return scrollZone.offsetHeight + scrollZone.scrollTop >= scrollZone.scrollHeight;
+  }
+
+  socket.onmessage = function(event) {
+    const element = messageViewModel.cloneNode(true);
+    const message = JSON.parse(event.data);
+    const shouldScrollToBottom = message.author_id == userId || scrolledToBottom();
+
+    element.querySelector(".avatar img").src = message.avatar_url;
+    element.querySelector(".user").textContent = message.display_name;
+    element.querySelector(".body").textContent = message.body;
+    messageList.appendChild(element);
+    if (shouldScrollToBottom)
+      element.scrollIntoView({ block: "end", behavior: "smooth" });
+  };
+  form.onsubmit = function(event) {
+    event.preventDefault();
+    fetch(route, {
+      method: "POST",
+      body: new FormData(form)
+    }).then(function(response) {
+      return response.text();
+    }).then(function(csrfToken) {
+      csrfTokenInput.value = csrfToken;
+      input.value = "";
+      input.focus = true;
+    }).catch(function() {
+      alert("<%= i18n::t("chatroom.send-failure") %>");
+    });
+  };
+  input.focus = true;
+</script>

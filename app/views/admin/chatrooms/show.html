@@ -1,0 +1,36 @@
+#include <crails/i18n.hpp>
+#include <crails/html_form_builder.hpp>
+#include <crails/cms/routes.hpp>
+#include <crails/cms/views/style.hpp>
+#include "app/models/chatroom.hpp"
+
+using namespace Crails::Cms;
+
+const Style& style = Style::singleton::require();
+const LocalRoute route = LocalRoute(vars);
+const Chatroom& @model;
+Crails::FormBuilder<Chatroom> form = Crails::FormBuilder<Chatroom>(this, model);
+
+// END LINKING
+
+<%= form_for(model, route(), {{"style", style.form_classes() + "chatroom-form"},{"id","main-form"}}) yields %>
+
+  <!-- Title -->
+  <%= style.form_group() yields %>
+    <%= form.label_for("title") %>
+    <%= form.text_field("title", &Chatroom::get_title) %>
+  <% yields-end %>
+
+  <%= style.form_group() yields %>
+    <%= form.label_for("slug") %>
+    <%= form.text_field("slug", &Chatroom::get_slug) %>
+  <% yields-end %>
+
+<% yields-end %>
+
+<div class="<%= style.button_group_classes() %>">
+  <%= style.admin_submit_button("main-form") %>
+  <% if (model.is_persistent()) do %>
+    <%= style.admin_remove_button(*this, route.make(model.get_id())) %>
+  <% end %>
+</div>

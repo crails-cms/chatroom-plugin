@@ -1,0 +1,19 @@
+#include "app/models/chatroom.hpp"
+#include "lib/plugin-odb.hxx"
+
+odb::result<ChatroomMessage>& @messages; 
+unsigned long @items_count;
+
+// END LINKING
+
+typedef odb::result<ChatroomMessage> List;
+
+json([&]()
+{
+  json("count", items_count);
+  json_array<List::iterator, ChatroomMessage>("messages", messages.begin(), messages.end(), [&](const ChatroomMessage& message)
+  {
+    json("author_id", message.get_author_id());
+    json("body", message.get_body());
+  });
+});

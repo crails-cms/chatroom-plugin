@@ -1,0 +1,35 @@
+#include <crails/i18n.hpp>
+#include <crails/cms/routes.hpp>
+#include <crails/cms/views/style.hpp>
+#include "app/models/chatroom.hpp"
+
+using namespace std;
+using namespace Crails::Cms;
+
+vector<shared_ptr<Chatroom>>& @models;
+const Style& style = Style::singleton::require();
+const LocalRoute route = LocalRoute(vars);
+
+// END LINKING
+
+<div class="controls">
+  <div class="<%= style.button_group_classes() %>">
+    <%= link(route.make("new"), i18n::t("admin.new-chatroom"), {{"class", style.button_classes()}}) %>
+  </div>
+</div>
+
+<table class="<%= style.table_classes() %>">
+  <tr>
+    <th><%= i18n::t("admin.name") %></th>
+  </tr>
+  <% if (!models.size()) do -%>
+    <td colspan="5"><%= i18n::t("admin.empty-table") %></td>
+  <% end -%>
+  <% for (const auto& model : models) do -%>
+    <tr>
+      <td>
+        <%= link(route.make(model->get_id()), model->get_title()) %>
+      </td>
+    </tr>
+  <% end -%>
+</table>
